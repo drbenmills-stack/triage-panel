@@ -239,9 +239,11 @@ fieldset#formSet { border: 0; margin: 0; padding: 0; min-width: 0; }
     <p style="margin:0 0 8px;max-width:64ch">When you've done all the cases you want to, you can see what a triaging
     AI suggested for each, and say what you think of it. Your answers are locked when you do, so do the cases first.</p>
     <p style="margin:0" id="revealAsk"><button type="button" class="btn ghost" id="reveal">I've finished: show me the AI's suggestions</button></p>
-    <p style="margin:0" id="revealConfirm" hidden><b>This locks your answers.</b> You won't be able to change them afterwards.
-    <button type="button" class="btn" id="revealYes">Lock my answers and show me</button>
-    <button type="button" class="btn ghost" id="revealNo">Not yet</button></p>
+    <div id="revealConfirm" hidden>
+    <p style="margin:0 0 8px" id="revealCount"></p>
+    <p style="margin:0"><b>This locks your answers.</b> You won't be able to change them afterwards.</p>
+    <p style="margin:8px 0 0"><button type="button" class="btn ghost" id="revealBack">Back to the cases</button>
+    <button type="button" class="btn" id="revealYes">Lock my answers and show me</button></p></div>
     <p style="margin:0" id="revealDone" hidden><button type="button" class="btn" id="toReview">Open the AI's suggestions</button></p>
   </div>
   <p><button type="button" class="btn" id="start" disabled>Start</button>
@@ -466,8 +468,20 @@ document.querySelectorAll(".role").forEach(b => b.onclick = () => {
   $("start").disabled = false; $("startNote").textContent = ""; changed(); });
 function showReveal() {
   $("revealAsk").hidden = !!state.revealed; $("revealConfirm").hidden = true; $("revealDone").hidden = !state.revealed; }
-$("reveal").onclick = () => { $("revealAsk").hidden = true; $("revealConfirm").hidden = false; };
-$("revealNo").onclick = () => { $("revealAsk").hidden = false; $("revealConfirm").hidden = true; };
+// Ben, 5 October 2026: "you can open AI without answering any questions. maybe you
+// should get a check". An answered case is one ticked finished or with something written.
+const answered = c => { const p = state.cases[c.name] || {}; return p.done || (p.thinking || "").trim(); };
+$("reveal").onclick = () => {
+  const done = CASES.filter(answered).length;
+  $("revealCount").innerHTML = done === CASES.length
+    ? "You've answered all " + CASES.length + " cases. Thank you."
+    : "<b>You've answered " + done + " of " + CASES.length + " cases.</b> Please do the rest first if you can: " +
+      "once you've seen the AI's suggestions, you can't go back and add to your answers.";
+  $("revealYes").textContent = done === CASES.length ? "Lock my answers and show me" : "Show me anyway";
+  $("revealAsk").hidden = true; $("revealConfirm").hidden = false; };
+$("revealBack").onclick = () => {
+  $("revealAsk").hidden = false; $("revealConfirm").hidden = true;
+  const next = CASES.findIndex(c => !answered(c)); showDesk(); showCase(next < 0 ? 0 : next); };
 $("revealYes").onclick = () => { state.revealed = new Date().toISOString(); changed(); showReview(); };
 $("toReview").onclick = showReview;
 function yours(p) {
