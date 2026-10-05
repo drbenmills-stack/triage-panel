@@ -343,7 +343,7 @@ function wireSearch(col, onSearch) {
   col.querySelector('.find .prev').onclick = () => go(-1); }
 
 
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbyIi4bL7xt4udNYOIJocxLnCeX4xFVXe7TiQcF8pZFtEN5rrIIhVb599YceZsElU31I5g/exec";      // set in the stand-alone version: answers go to Ben's sheet
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbyp67MpXreEBJOiRKbYC-EOeL9w_FHA8wY2Ab6i29j9AqjkJ0IetfGslqNZiPeOt7vz8g/exec";      // set in the stand-alone version: answers go to Ben's sheet
 let state = { role: "", cases: {} };   // this person's answers
 let at = 0, db = null, user = null, uid = null, writing = Promise.resolve(), timer = null, sending = false, sendAgain = false;
 const $ = id => document.getElementById(id);
