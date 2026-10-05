@@ -338,7 +338,7 @@ function wireSearch(col, onSearch) {
 
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbyIi4bL7xt4udNYOIJocxLnCeX4xFVXe7TiQcF8pZFtEN5rrIIhVb599YceZsElU31I5g/exec";      // set in the stand-alone version: answers go to Ben's sheet
 let state = { role: "", cases: {} };   // this person's answers
-let at = 0, db = null, user = null, uid = null, writing = Promise.resolve(), timer = null;
+let at = 0, db = null, user = null, uid = null, writing = Promise.resolve(), timer = null, sending = false, sendAgain = false;
 const $ = id => document.getElementById(id);
 const esc = t => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const status = (text, bad) => { $("status").textContent = text; $("status").classList.toggle("bad", !!bad); };
@@ -348,7 +348,7 @@ const local = { get() { try { return JSON.parse(localStorage.getItem("triage-pan
 function changed() {
   state.saved = new Date().toISOString();
   local.set(state); draw();
-  clearTimeout(timer); timer = setTimeout(save, 900);
+  clearTimeout(timer); timer = setTimeout(save, SHEET_URL ? 2500 : 900);
 }
 function newCode() {
   try { return crypto.randomUUID(); } catch (e) { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); } }
@@ -356,13 +356,17 @@ function save() {
   if (SHEET_URL) {
     // The sheet's script answers from another address, so the reply cannot be read;
     // a send that does not fail is taken as saved, and the browser keeps a copy anyway.
+    // The sheet takes several seconds to answer, so one send at a time: changes made
+    // while a send is on its way go together in the next one.
     state.person ||= newCode(); local.set(state);
     status("Saving…");
-    const body = JSON.stringify({ person: state.person, state });
-    writing = writing.then(() => fetch(SHEET_URL, { method: "POST", mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, body }))
-      .then(() => status("Saved " + new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})))
-      .catch(() => status("Not sent just now. Your answers are kept in this browser and will go with your next change.", true));
+    if (sending) { sendAgain = true; return; }
+    sending = true; sendAgain = false;
+    fetch(SHEET_URL, { method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ person: state.person, state }) })
+      .then(() => { if (!sendAgain) status("Saved " + new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})); })
+      .catch(() => status("Not sent just now. Your answers are kept in this browser and will go with your next change.", true))
+      .finally(() => { sending = false; if (sendAgain) save(); });
     return;
   }
   if (!db || !uid) { status("Saved in this browser only. Use Download my answers when you finish.", true); return; }
