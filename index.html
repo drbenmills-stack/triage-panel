@@ -425,6 +425,9 @@ function showCase(i) {
     : "How would you deal with this document? Search the record on the left as you would in your clinical system.";
   $("prev").disabled = at === 0; $("next").textContent = at === CASES.length - 1 ? "Finish" : "Next case →";
   document.querySelectorAll(".col").forEach(col => col.scrollTop = 0); setView("journal");
+  // Ben, 5 October 2026: SystmOne's journal opens at the bottom, on the latest entry, and
+  // you scroll up to go back in time.
+  const journal = document.querySelector(".col.record"); journal.scrollTop = journal.scrollHeight;
   draw();
 }
 function scrollGrids() { $("results").querySelectorAll(".grid-wrap").forEach(w => w.scrollLeft = w.scrollWidth); }
