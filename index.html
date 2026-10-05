@@ -173,7 +173,7 @@ fieldset#formSet { border: 0; margin: 0; padding: 0; min-width: 0; }
 
 <div class="bar" id="bar">
   <span class="brand">Triage Panel</span>
-  <div class="tabs" id="tabs" hidden></div>
+  <div id="tabs" hidden></div><span style="flex:1"></span>
   <span class="tally" id="savedTally"></span>
   <span class="status" id="status">Loading…</span>
   <button type="button" class="btn ghost" id="toIntro" hidden>Instructions</button>
@@ -355,7 +355,7 @@ const local = { get() { try { return JSON.parse(localStorage.getItem("triage-pan
 function changed() {
   state.saved = new Date().toISOString();
   local.set(state); draw();
-  clearTimeout(timer); timer = setTimeout(save, SHEET_URL ? 2500 : 900);
+  clearTimeout(timer); timer = setTimeout(() => { timer = null; save(); }, SHEET_URL ? 2500 : 900);
 }
 function newCode() {
   try { return crypto.randomUUID(); } catch (e) { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); } }
@@ -406,12 +406,13 @@ setInterval(() => {
 }, 5000);
 function showCase(i) {
   if (!$("desk").hidden && CASES[at] && (state.cases[CASES[at].name] || {}).seconds) changed();
+  flush();
   at = Math.max(0, Math.min(CASES.length - 1, i));
   if (!state.revealed) { const p = planOf(); p.opened ||= new Date().toISOString(); }
   const c = CASES[at];
   $("rectext").innerHTML = RECORDS[c.name];
   const box = document.querySelector(".find input"); box.value = ""; document.querySelector(".find .count").textContent = "";
-  $("caseMeta").textContent = c.name + " · " + c.title + " · record as it stood on " + c.cut;
+  $("caseMeta").textContent = "Case " + (at + 1) + " of " + CASES.length + " · " + c.name + " · " + c.title + " · record as it stood on " + c.cut;
   $("arrived").innerHTML = c.arriving;
   $("results").innerHTML = RESULTS[c.name];
   $("results").querySelectorAll(".rtab").forEach(t => t.onclick = () => {
@@ -470,13 +471,22 @@ wireSearch(document.querySelector(".col.record"), (term, hits) => {
   const list = planOf().searches ??= []; const last = list[list.length - 1];
   if (last && (term.startsWith(last.term) || last.term.startsWith(term))) list.pop();
   list.push({ term, hits }); changed(); });
+// Ben, 5 October 2026: "Each should be saved as they go incase they don't complete all 11."
+// Every change is sent a moment after it is made; moving to another case, finishing, or
+// leaving the page sends whatever is still waiting at once.
+function flush() { if (timer) { clearTimeout(timer); timer = null; save(); } }
+window.addEventListener("pagehide", () => {
+  if (!timer || !SHEET_URL) return;
+  clearTimeout(timer); timer = null; state.person ||= newCode(); local.set(state);
+  try { fetch(SHEET_URL, { method: "POST", mode: "no-cors", keepalive: true,
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ person: state.person, state }) }); } catch (e) {} });
 $("prev").onclick = () => showCase(at - 1);
 $("next").onclick = () => at === CASES.length - 1 ? showIntro(true) : showCase(at + 1);
 
 // Screens
-function showDesk() { $("intro").hidden = true; $("owner").hidden = true; $("review").hidden = true; $("desk").hidden = false; $("tabs").hidden = false;
+function showDesk() { $("intro").hidden = true; $("owner").hidden = true; $("review").hidden = true; $("desk").hidden = false; 
   $("toIntro").hidden = false; showCase(at); }
-function showIntro(finished) { $("desk").hidden = true; $("owner").hidden = true; $("review").hidden = true; $("intro").hidden = false; showReveal();
+function showIntro(finished) { flush(); $("desk").hidden = true; $("owner").hidden = true; $("review").hidden = true; $("intro").hidden = false; showReveal();
   $("start").textContent = finished || Object.keys(state.cases).length ? "Carry on" : "Start";
   if (finished) { const t = savedCount(state.cases);
     status("Thank you. You handled " + t.saved + " of " + t.done + " requests without a face-to-face appointment. Your answers are saved; you can come back and change them."); } }
@@ -510,7 +520,7 @@ function yours(p) {
   return out || '<p class="hint">You did not answer this case.</p>'; }
 function showReview() {
   $("intro").hidden = true; $("desk").hidden = true; $("owner").hidden = true; $("review").hidden = false;
-  $("tabs").hidden = false; $("toIntro").hidden = false;
+   $("toIntro").hidden = false;
   const list = $("reviewList"); list.innerHTML = "";
   CASES.forEach(c => {
     if (!c.ai) return;
