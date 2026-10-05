@@ -393,8 +393,21 @@ function dayOf(node) {
     if (d.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING || d.contains(el)) found = d; });
   return found ? found.dataset.day : ""; }
 
+// Ben, 5 October 2026: time per case ("no triaging should take more than three to five
+// minutes"). Counted only while the case is on screen, the tab is in view and the person
+// has done something in the last two minutes, so a page left open overnight adds nothing.
+let lastActive = Date.now(), lastTick = Date.now();
+["keydown", "mousedown", "mousemove", "scroll", "touchstart", "input"].forEach(kind =>
+  document.addEventListener(kind, () => { lastActive = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => {
+  const now = Date.now(), step = (now - lastTick) / 1000; lastTick = now;
+  if (state.revealed || $("desk").hidden || document.visibilityState !== "visible" || now - lastActive > 120000) return;
+  const p = planOf(); p.seconds = Math.round((p.seconds || 0) + Math.min(step, 10));
+}, 5000);
 function showCase(i) {
+  if (!$("desk").hidden && CASES[at] && (state.cases[CASES[at].name] || {}).seconds) changed();
   at = Math.max(0, Math.min(CASES.length - 1, i));
+  if (!state.revealed) { const p = planOf(); p.opened ||= new Date().toISOString(); }
   const c = CASES[at];
   $("rectext").innerHTML = RECORDS[c.name];
   const box = document.querySelector(".find input"); box.value = ""; document.querySelector(".find .count").textContent = "";
